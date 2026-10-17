@@ -4,26 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/useProfile";
-
-const STATUS_LABELS = {
-  pending: "Pending",
-  in_progress: "In progress",
-  resolved: "Resolved",
-};
-
-const STATUS_STYLES = {
-  pending: "bg-amber-100 text-amber-800",
-  in_progress: "bg-blue-100 text-blue-800",
-  resolved: "bg-green-100 text-green-800",
-};
-
-const PRIORITY_LABELS = { low: "Low", medium: "Medium", high: "High" };
-
-const PRIORITY_STYLES = {
-  low: "bg-slate-100 text-slate-700",
-  medium: "bg-yellow-100 text-yellow-800",
-  high: "bg-red-100 text-red-800",
-};
+import StatusBadge from "@/components/StatusBadge";
 
 function formatDate(value) {
   return new Date(value).toLocaleDateString("en-GB", {
@@ -37,6 +18,7 @@ export default function ComplaintsPage() {
   const { loading, profile } = useProfile();
   const [complaints, setComplaints] = useState([]);
   const [names, setNames] = useState({}); // user id -> full name (admin only)
+  const [technicians, setTechnicians] = useState([]); // admin only
   const [photoUrls, setPhotoUrls] = useState({}); // photo path -> temporary link
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
@@ -76,23 +58,30 @@ export default function ComplaintsPage() {
         setPhotoUrls(urlMap);
       }
 
-      // 3. Admins also load people's names to show who reported each complaint
+      // 3. Admins also load people's names and the list of technicians
       if (profile.role === "admin") {
         const { data: people } = await supabase
           .from("profiles")
-          .select("id, full_name");
+          .select("id, full_name, role");
 
         const nameMap = {};
         (people ?? []).forEach((p) => {
           nameMap[p.id] = p.full_name;
         });
         setNames(nameMap);
+        setTechnicians((people ?? []).filter((p) => p.role === "technician"));
       }
 
       setFetching(false);
     }
     loadComplaints();
   }, [profile]);
+
+  function replaceComplaint(updated) {
+    setComplaints((current) =>
+      current.map((c) => (c.id === updated.id ? updated : c))
+    );
+  }
 
   async function handleStatusChange(id, newStatus) {
     setUpdatingId(id);
@@ -115,10 +104,31 @@ export default function ComplaintsPage() {
       setError("Nothing was updated. You may not have permission.");
       return;
     }
+    replaceComplaint(data[0]);
+  }
 
-    setComplaints((current) =>
-      current.map((c) => (c.id === id ? data[0] : c))
-    );
+  async function handleAssign(id, technicianId) {
+    setUpdatingId(id);
+    setError("");
+
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("complaints")
+      .update({ assigned_to: technicianId === "" ? null : technicianId })
+      .eq("id", id)
+      .select("*, equipment(code, name, location)");
+
+    setUpdatingId(null);
+
+    if (error) {
+      setError("Could not assign the complaint: " + error.message);
+      return;
+    }
+    if (!data || data.length === 0) {
+      setError("Nothing was updated. You may not have permission.");
+      return;
+    }
+    replaceComplaint(data[0]);
   }
 
   if (loading) {
@@ -149,6 +159,9 @@ export default function ComplaintsPage() {
     { value: "resolved", label: "Resolved" },
   ];
 
+  const selectClass =
+    "rounded-lg border border-slate-300 bg-white px-3 py-1 text-sm";
+
   return (
     <main className="mx-auto max-w-3xl p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -169,7 +182,11 @@ export default function ComplaintsPage() {
         </div>
       </div>
 
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+      {error && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       {/* Status filter buttons */}
       <div className="mt-6 flex flex-wrap gap-2">
@@ -209,16 +226,8 @@ export default function ComplaintsPage() {
                 </p>
               </div>
               <div className="flex gap-2">
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-medium ${PRIORITY_STYLES[complaint.priority]}`}
-                >
-                  {PRIORITY_LABELS[complaint.priority]} priority
-                </span>
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[complaint.status]}`}
-                >
-                  {STATUS_LABELS[complaint.status]}
-                </span>
+                <StatusBadge type="priority" value={complaint.priority} />
+                <StatusBadge type="complaint" value={complaint.status} />
               </div>
             </div>
 
@@ -249,25 +258,61 @@ export default function ComplaintsPage() {
                 : ""}
             </p>
 
+            {/* What the assignment looks like to non-admins */}
+            {!isAdmin && complaint.assigned_to && (
+              <p className="mt-1 text-xs text-slate-500">
+                A technician is assigned to this complaint.
+              </p>
+            )}
+
+            {/* Admin controls */}
             {isAdmin && (
-              <div className="mt-3">
-                <label className="mr-2 text-sm font-medium">Change status:</label>
-                <select
-                  value={complaint.status}
-                  disabled={updatingId === complaint.id}
-                  onChange={(e) =>
-                    handleStatusChange(complaint.id, e.target.value)
-                  }
-                  className="rounded-lg border border-slate-300 bg-white px-3 py-1 text-sm"
-                >
-                  <option value="pending">Pending</option>
-                  <option value="in_progress">In progress</option>
-                  <option value="resolved">Resolved</option>
-                </select>
+              <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2">
+                <div>
+                  <label className="mr-2 text-sm font-medium">Assign to:</label>
+                  <select
+                    value={complaint.assigned_to ?? ""}
+                    disabled={updatingId === complaint.id}
+                    onChange={(e) => handleAssign(complaint.id, e.target.value)}
+                    className={selectClass}
+                  >
+                    <option value="">Unassigned</option>
+                    {technicians.map((tech) => (
+                      <option key={tech.id} value={tech.id}>
+                        {tech.full_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="mr-2 text-sm font-medium">
+                    Change status:
+                  </label>
+                  <select
+                    value={complaint.status}
+                    disabled={updatingId === complaint.id}
+                    onChange={(e) =>
+                      handleStatusChange(complaint.id, e.target.value)
+                    }
+                    className={selectClass}
+                  >
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In progress</option>
+                    <option value="resolved">Resolved</option>
+                  </select>
+                </div>
               </div>
             )}
           </div>
         ))}
+
+        {isAdmin && !fetching && technicians.length === 0 && (
+          <p className="text-center text-sm text-slate-500">
+            There are no technicians yet. Open the Users page and change
+            someone&apos;s role to Technician.
+          </p>
+        )}
       </div>
     </main>
   );

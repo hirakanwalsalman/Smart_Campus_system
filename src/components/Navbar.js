@@ -11,6 +11,7 @@ import {
   FilePlus2,
   ClipboardList,
   Boxes,
+  Users,
   LogOut,
   LogIn,
   UserPlus,
@@ -102,6 +103,11 @@ export default function Navbar() {
     { href: "/equipment", label: "Equipment", icon: Boxes },
   ];
 
+  // Only admins see the Users page
+  if (role === "admin") {
+    links.push({ href: "/users", label: "Users", icon: Users });
+  }
+
   function isActive(href) {
     return pathname === href || pathname.startsWith(href + "/");
   }
@@ -138,7 +144,7 @@ export default function Navbar() {
 
         {/* Desktop links */}
         {ready && signedIn && (
-          <nav className="hidden items-center gap-1 md:flex">
+          <nav className="hidden items-center gap-1 lg:flex">
             {links.map((link) => (
               <Link
                 key={link.href}
@@ -153,7 +159,7 @@ export default function Navbar() {
         )}
 
         {/* Desktop right side */}
-        <div className="hidden items-center gap-3 md:flex">
+        <div className="hidden items-center gap-3 lg:flex">
           {ready && signedIn && (
             <>
               <div className="text-right leading-tight">
@@ -194,7 +200,7 @@ export default function Navbar() {
         {/* Phone menu button */}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="rounded-lg p-2 text-slate-700 hover:bg-slate-100 md:hidden"
+          className="rounded-lg p-2 text-slate-700 hover:bg-slate-100 lg:hidden"
           aria-label={menuOpen ? "Close menu" : "Open menu"}
         >
           {menuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -203,7 +209,7 @@ export default function Navbar() {
 
       {/* Phone menu panel */}
       {menuOpen && ready && (
-        <div className="border-t border-slate-200 bg-white px-4 pb-4 pt-2 md:hidden">
+        <div className="border-t border-slate-200 bg-white px-4 pb-4 pt-2 lg:hidden">
           {signedIn ? (
             <>
               <div className="mb-2 border-b border-slate-100 px-3 pb-3">
