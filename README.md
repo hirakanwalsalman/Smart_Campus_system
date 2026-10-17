@@ -41,8 +41,8 @@ A responsive web application for reporting campus equipment problems and trackin
 ### 1. Clone and install
 
 ```bash
-git clone https://github.com/YOUR-USERNAME/smart-campus-maintenance.git
-cd smart-campus-maintenance
+git clone https://github.com/hirakanwalsalman/Smart_Campus_system.git
+cd Smart_Campus_system
 npm install
 ```
 
@@ -97,4 +97,3 @@ _To be added._
 ## Author
 
 Hira Kanwal, Biomedical Engineering
-"# Smart_Campus_system" 
