@@ -8,13 +8,16 @@ import {
   Pencil,
   ClipboardList,
   CalendarClock,
+  CalendarCheck,
   CircleCheck,
   Timer,
   TriangleAlert,
   Inbox,
+  Repeat,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/useProfile";
+import { daysUntil, dueText, formatDateOnly } from "@/lib/dates";
 import StatCard from "@/components/StatCard";
 import StatusBadge from "@/components/StatusBadge";
 
@@ -23,6 +26,8 @@ const BORDER_BY_STATUS = {
   in_progress: "border-blue-400",
   resolved: "border-green-500",
 };
+
+const DUE_SOON_DAYS = 14;
 
 function formatDate(value) {
   return new Date(value).toLocaleDateString("en-GB", {
@@ -42,12 +47,20 @@ function formatDateTime(value) {
   });
 }
 
+function dueBadgeClass(days) {
+  if (days < 0) return "bg-red-100 text-red-800";
+  if (days <= DUE_SOON_DAYS) return "bg-amber-100 text-amber-800";
+  return "bg-blue-100 text-blue-800";
+}
+
 export default function EquipmentDetailPage() {
   const { id } = useParams();
   const { loading, profile } = useProfile();
   const [item, setItem] = useState(null);
   const [complaints, setComplaints] = useState([]);
   const [notes, setNotes] = useState({}); // complaint id -> list of notes
+  const [tasks, setTasks] = useState([]); // scheduled maintenance
+  const [logs, setLogs] = useState([]); // completed maintenance
   const [names, setNames] = useState({}); // user id -> full name (admin only)
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
@@ -106,7 +119,25 @@ export default function EquipmentDetailPage() {
         setNotes(grouped);
       }
 
-      // 4. Admins can see who wrote each note
+      // 4. Maintenance schedule and log (admins and technicians only)
+      if (profile.role === "admin" || profile.role === "technician") {
+        const { data: taskData } = await supabase
+          .from("maintenance_tasks")
+          .select("id, title, description, interval_days, next_due, active")
+          .eq("equipment_id", id)
+          .order("next_due", { ascending: true });
+        setTasks(taskData ?? []);
+
+        const { data: logData } = await supabase
+          .from("maintenance_logs")
+          .select("id, completed_by, completed_on, note, maintenance_tasks(title)")
+          .eq("equipment_id", id)
+          .order("completed_on", { ascending: false })
+          .order("created_at", { ascending: false });
+        setLogs(logData ?? []);
+      }
+
+      // 5. Admins can see who wrote each note
       if (profile.role === "admin") {
         const { data: people } = await supabase
           .from("profiles")
@@ -146,6 +177,8 @@ export default function EquipmentDetailPage() {
   }
 
   const isAdmin = profile?.role === "admin";
+  const canSeeMaintenance = isAdmin || profile?.role === "technician";
+  const activeTasks = tasks.filter((t) => t.active);
 
   // Statistics
   const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
@@ -175,6 +208,12 @@ export default function EquipmentDetailPage() {
     if (note.author_id === profile?.id) return "You";
     if (isAdmin) return names[note.author_id] ?? "Unknown";
     return "Maintenance team";
+  }
+
+  function completerLabel(log) {
+    if (log.completed_by === profile?.id) return "You";
+    if (isAdmin) return names[log.completed_by] ?? "Unknown";
+    return "A technician";
   }
 
   return (
@@ -249,9 +288,91 @@ export default function EquipmentDetailPage() {
         />
       </div>
 
-      {/* History */}
+      {/* Scheduled maintenance (admins and technicians) */}
+      {canSeeMaintenance && (
+        <div className="mt-8">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <CalendarCheck size={20} className="text-blue-600" />
+              Scheduled maintenance
+            </h2>
+            <Link
+              href="/maintenance"
+              className="text-sm font-medium text-blue-700 hover:underline"
+            >
+              {isAdmin ? "Manage the schedule" : "Go to my tasks"}
+            </Link>
+          </div>
+
+          {activeTasks.length === 0 ? (
+            <p className="mt-3 rounded-xl bg-white p-5 text-sm text-slate-500 shadow-sm ring-1 ring-slate-200">
+              No maintenance is scheduled for this equipment.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-3">
+              {activeTasks.map((task) => {
+                const days = daysUntil(task.next_due);
+                return (
+                  <li
+                    key={task.id}
+                    className="flex flex-wrap items-start justify-between gap-2 rounded-xl bg-white p-4 shadow-sm ring-1 ring-slate-200"
+                  >
+                    <div>
+                      <p className="font-medium">{task.title}</p>
+                      {task.description && (
+                        <p className="mt-1 text-sm text-slate-600">
+                          {task.description}
+                        </p>
+                      )}
+                      <p className="mt-1 flex flex-wrap items-center gap-x-4 text-xs text-slate-500">
+                        <span>Due {formatDateOnly(task.next_due)}</span>
+                        <span className="flex items-center gap-1">
+                          <Repeat size={12} />
+                          {task.interval_days
+                            ? `Every ${task.interval_days} days`
+                            : "One time"}
+                        </span>
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${dueBadgeClass(days)}`}
+                    >
+                      {dueText(days)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {logs.length > 0 && (
+            <div className="mt-4 rounded-xl bg-white p-5 shadow-sm ring-1 ring-slate-200">
+              <h3 className="font-medium">Completed maintenance</h3>
+              <ul className="mt-2 divide-y divide-slate-100">
+                {logs.map((log) => (
+                  <li key={log.id} className="py-3">
+                    <p className="text-sm font-medium">
+                      {log.maintenance_tasks?.title}
+                    </p>
+                    {log.note && (
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">
+                        {log.note}
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs text-slate-500">
+                      {completerLabel(log)} | {formatDateOnly(log.completed_on)}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Complaint history */}
       <h2 className="mt-8 text-lg font-semibold">
-        {isAdmin ? "Maintenance history" : "Your complaints about this equipment"}
+        {isAdmin ? "Complaint history" : "Your complaints about this equipment"}
       </h2>
       {!isAdmin && (
         <p className="mt-1 text-sm text-slate-500">
