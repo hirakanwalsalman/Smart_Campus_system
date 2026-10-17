@@ -4,20 +4,14 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/useProfile";
+import StatusBadge from "@/components/StatusBadge";
 
-const STATUS_LABELS = {
-  working: "Working",
-  faulty: "Faulty",
-  under_repair: "Under repair",
-  retired: "Retired",
-};
-
-const STATUS_STYLES = {
-  working: "bg-green-100 text-green-800",
-  faulty: "bg-red-100 text-red-800",
-  under_repair: "bg-amber-100 text-amber-800",
-  retired: "bg-slate-200 text-slate-700",
-};
+const STATUS_FILTER_OPTIONS = [
+  { value: "working", label: "Working" },
+  { value: "faulty", label: "Faulty" },
+  { value: "under_repair", label: "Under repair" },
+  { value: "retired", label: "Retired" },
+];
 
 export default function EquipmentPage() {
   const { loading, profile } = useProfile();
@@ -107,7 +101,11 @@ export default function EquipmentPage() {
         </div>
       </div>
 
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+      {error && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
 
       {/* Search and filters */}
       <div className="mt-6 flex flex-wrap items-center gap-3">
@@ -138,9 +136,9 @@ export default function EquipmentPage() {
           className={inputClass}
         >
           <option value="all">All statuses</option>
-          {Object.entries(STATUS_LABELS).map(([value, label]) => (
-            <option key={value} value={value}>
-              {label}
+          {STATUS_FILTER_OPTIONS.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
             </option>
           ))}
         </select>
@@ -170,53 +168,56 @@ export default function EquipmentPage() {
               <th className="px-4 py-3">Category</th>
               <th className="px-4 py-3">Location</th>
               <th className="px-4 py-3">Status</th>
-              {isAdmin && <th className="px-4 py-3">Actions</th>}
+              <th className="px-4 py-3">Actions</th>
             </tr>
           </thead>
           <tbody>
             {!fetching && items.length === 0 && (
               <tr>
-                <td
-                  colSpan={isAdmin ? 6 : 5}
-                  className="px-4 py-6 text-center text-slate-500"
-                >
+                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
                   No equipment yet.
                 </td>
               </tr>
             )}
             {!fetching && items.length > 0 && filteredItems.length === 0 && (
               <tr>
-                <td
-                  colSpan={isAdmin ? 6 : 5}
-                  className="px-4 py-6 text-center text-slate-500"
-                >
+                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
                   No equipment matches your search.
                 </td>
               </tr>
             )}
             {filteredItems.map((item) => (
               <tr key={item.id} className="border-t border-slate-100">
-                <td className="px-4 py-3 font-medium">{item.code}</td>
+                <td className="px-4 py-3 font-medium">
+                  <Link
+                    href={`/equipment/${item.id}`}
+                    className="text-blue-700 hover:underline"
+                  >
+                    {item.code}
+                  </Link>
+                </td>
                 <td className="px-4 py-3">{item.name}</td>
                 <td className="px-4 py-3">{item.category}</td>
                 <td className="px-4 py-3">{item.location}</td>
                 <td className="px-4 py-3">
-                  <span
-                    className={`rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[item.status]}`}
-                  >
-                    {STATUS_LABELS[item.status] ?? item.status}
-                  </span>
+                  <StatusBadge type="equipment" value={item.status} />
                 </td>
-                {isAdmin && (
-                  <td className="px-4 py-3">
+                <td className="whitespace-nowrap px-4 py-3">
+                  <Link
+                    href={`/equipment/${item.id}`}
+                    className="text-blue-700 underline"
+                  >
+                    History
+                  </Link>
+                  {isAdmin && (
                     <Link
                       href={`/equipment/${item.id}/edit`}
-                      className="text-blue-700 underline"
+                      className="ml-4 text-blue-700 underline"
                     >
                       Edit
                     </Link>
-                  </td>
-                )}
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

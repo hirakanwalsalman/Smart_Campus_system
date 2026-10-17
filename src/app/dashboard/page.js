@@ -56,12 +56,20 @@ export default function DashboardPage() {
     async function loadData() {
       const supabase = createClient();
 
-      const { data: complaintData, error: complaintError } = await supabase
+      let complaintQuery = supabase
         .from("complaints")
         .select(
           "id, status, priority, description, created_at, equipment(code, name)"
         )
         .order("created_at", { ascending: false });
+
+      // Technicians only count the complaints assigned to them
+      if (profile.role === "technician") {
+        complaintQuery = complaintQuery.eq("assigned_to", profile.id);
+      }
+
+      const { data: complaintData, error: complaintError } =
+        await complaintQuery;
 
       if (complaintError) {
         setError("Could not load complaints: " + complaintError.message);
@@ -228,7 +236,7 @@ export default function DashboardPage() {
             <Inbox size={32} className="mx-auto text-slate-400" />
             <p className="mt-2">
               {isTechnician
-                ? "No complaints are assigned to you yet. Assigned jobs will appear here once admins can assign them (coming in Stage 2)."
+                ? "No complaints are assigned to you yet."
                 : "No complaints yet."}
             </p>
             {!isTechnician && (
