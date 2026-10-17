@@ -11,6 +11,7 @@ import {
   FilePlus2,
   ClipboardList,
   Boxes,
+  CalendarCheck,
   Users,
   LogOut,
   LogIn,
@@ -103,6 +104,15 @@ export default function Navbar() {
     { href: "/equipment", label: "Equipment", icon: Boxes },
   ];
 
+  // Admins and technicians see the maintenance schedule
+  if (role === "admin" || role === "technician") {
+    links.push({
+      href: "/maintenance",
+      label: "Maintenance",
+      icon: CalendarCheck,
+    });
+  }
+
   // Only admins see the Users page
   if (role === "admin") {
     links.push({ href: "/users", label: "Users", icon: Users });
@@ -130,7 +140,7 @@ export default function Navbar() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
           <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white">
@@ -144,7 +154,7 @@ export default function Navbar() {
 
         {/* Desktop links */}
         {ready && signedIn && (
-          <nav className="hidden items-center gap-1 lg:flex">
+          <nav className="hidden items-center gap-1 xl:flex">
             {links.map((link) => (
               <Link
                 key={link.href}
@@ -159,7 +169,7 @@ export default function Navbar() {
         )}
 
         {/* Desktop right side */}
-        <div className="hidden items-center gap-3 lg:flex">
+        <div className="hidden items-center gap-3 xl:flex">
           {ready && signedIn && (
             <>
               <div className="text-right leading-tight">
@@ -200,7 +210,7 @@ export default function Navbar() {
         {/* Phone menu button */}
         <button
           onClick={() => setMenuOpen(!menuOpen)}
-          className="rounded-lg p-2 text-slate-700 hover:bg-slate-100 lg:hidden"
+          className="rounded-lg p-2 text-slate-700 hover:bg-slate-100 xl:hidden"
           aria-label={menuOpen ? "Close menu" : "Open menu"}
         >
           {menuOpen ? <X size={24} /> : <Menu size={24} />}
@@ -209,7 +219,7 @@ export default function Navbar() {
 
       {/* Phone menu panel */}
       {menuOpen && ready && (
-        <div className="border-t border-slate-200 bg-white px-4 pb-4 pt-2 lg:hidden">
+        <div className="border-t border-slate-200 bg-white px-4 pb-4 pt-2 xl:hidden">
           {signedIn ? (
             <>
               <div className="mb-2 border-b border-slate-100 px-3 pb-3">
