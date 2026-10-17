@@ -12,6 +12,7 @@ import {
   ClipboardList,
   Boxes,
   CalendarCheck,
+  BarChart3,
   Users,
   LogOut,
   LogIn,
@@ -99,7 +100,7 @@ export default function Navbar() {
 
   const links = [
     { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/report", label: "Report an issue", icon: FilePlus2 },
+    { href: "/report", label: "Report issue", icon: FilePlus2 },
     { href: "/complaints", label: complaintsLabel, icon: ClipboardList },
     { href: "/equipment", label: "Equipment", icon: Boxes },
   ];
@@ -113,8 +114,9 @@ export default function Navbar() {
     });
   }
 
-  // Only admins see the Users page
+  // Only admins see Analytics and Users
   if (role === "admin") {
+    links.push({ href: "/analytics", label: "Analytics", icon: BarChart3 });
     links.push({ href: "/users", label: "Users", icon: Users });
   }
 
@@ -123,7 +125,7 @@ export default function Navbar() {
   }
 
   function desktopLinkClass(href) {
-    return `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+    return `flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm font-medium transition-colors ${
       isActive(href)
         ? "bg-blue-50 text-blue-700"
         : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
@@ -148,7 +150,10 @@ export default function Navbar() {
           </span>
           <span className="font-bold text-slate-900">
             Smart Campus
-            <span className="hidden text-blue-600 sm:inline"> Maintenance</span>
+            <span className="hidden text-blue-600 sm:inline xl:hidden 2xl:inline">
+              {" "}
+              Maintenance
+            </span>
           </span>
         </Link>
 
@@ -172,7 +177,7 @@ export default function Navbar() {
         <div className="hidden items-center gap-3 xl:flex">
           {ready && signedIn && (
             <>
-              <div className="text-right leading-tight">
+              <div className="hidden text-right leading-tight 2xl:block">
                 <p className="text-sm font-medium text-slate-900">
                   {profile?.full_name ?? "Account"}
                 </p>
