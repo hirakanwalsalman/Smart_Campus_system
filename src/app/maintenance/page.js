@@ -9,9 +9,11 @@ import {
   Trash2,
   Repeat,
   CalendarDays,
+  FileDown,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/useProfile";
+import { downloadMaintenanceReport } from "@/lib/pdf";
 
 const DUE_SOON_DAYS = 14;
 
@@ -100,6 +102,7 @@ export default function MaintenancePage() {
   const [doneOpenId, setDoneOpenId] = useState(null);
   const [doneNote, setDoneNote] = useState("");
   const [completingId, setCompletingId] = useState(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   const role = profile?.role;
   const isAdmin = role === "admin";
@@ -289,6 +292,38 @@ export default function MaintenancePage() {
     setDoneNote("");
   }
 
+  // Downloads a PDF of the tasks you can see, plus every completion on record
+  async function handleDownloadPdf() {
+    setPdfBusy(true);
+    setError("");
+    try {
+      const supabase = createClient();
+      const { data: allLogs, error: logError } = await supabase
+        .from("maintenance_logs")
+        .select(LOG_SELECT)
+        .order("completed_on", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1000);
+      if (logError) throw logError;
+
+      // Technicians can only see their own name, so other people show as "A technician"
+      const pdfNames = isAdmin ? names : { [profile.id]: profile.full_name };
+
+      await downloadMaintenanceReport({
+        tasks,
+        logs: allLogs ?? [],
+        names: pdfNames,
+        rangeLabel: "All time",
+        generatedBy: profile?.full_name ?? "User",
+        title: isAdmin ? "Maintenance report" : "My maintenance report",
+        fileBase: isAdmin ? "maintenance-report" : "my-maintenance-report",
+      });
+    } catch (e) {
+      setError("Could not create the PDF: " + (e?.message ?? "unknown error"));
+    }
+    setPdfBusy(false);
+  }
+
   if (loading) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-8">
@@ -353,15 +388,29 @@ export default function MaintenancePage() {
               : "These are the maintenance tasks assigned to you."}
           </p>
         </div>
-        {isAdmin && (
+        <div className="flex flex-wrap gap-3">
           <button
-            onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            onClick={handleDownloadPdf}
+            disabled={pdfBusy || fetching}
+            className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100 disabled:opacity-50"
           >
-            <CirclePlus size={16} />
-            {showForm ? "Close form" : "Add task"}
+            {pdfBusy ? (
+              <LoaderCircle size={16} className="animate-spin" />
+            ) : (
+              <FileDown size={16} />
+            )}
+            {pdfBusy ? "Creating PDF..." : "Download PDF"}
           </button>
-        )}
+          {isAdmin && (
+            <button
+              onClick={() => setShowForm(!showForm)}
+              className="flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            >
+              <CirclePlus size={16} />
+              {showForm ? "Close form" : "Add task"}
+            </button>
+          )}
+        </div>
       </div>
 
       {error && (

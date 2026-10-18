@@ -468,9 +468,11 @@ export async function downloadMaintenanceReport({
   names,
   rangeLabel,
   generatedBy,
+  title = "Maintenance report",
+  fileBase = "maintenance-report",
 }) {
   const ctx = await startDocument({
-    title: "Maintenance report",
+    title,
     subtitle: `Completed maintenance period: ${rangeLabel}`,
     generatedBy,
     landscape: true,
@@ -525,7 +527,85 @@ export async function downloadMaintenanceReport({
     emptyText: "No maintenance was completed in this period.",
   });
 
-  finishDocument(ctx, "maintenance-report");
+  finishDocument(ctx, fileBase);
+}
+
+// ---------- report: a list of complaints (any role) ----------
+
+export async function downloadComplaintListReport({
+  title,
+  subtitle,
+  complaints,
+  notes,
+  generatedBy,
+  authorLabel,
+  fileBase,
+}) {
+  const ctx = await startDocument({
+    title,
+    subtitle,
+    generatedBy,
+    landscape: true,
+  });
+
+  const countBy = (key, value) =>
+    complaints.filter((c) => c[key] === value).length;
+  const average = averageResolutionDays(complaints);
+
+  addHeading(ctx, "Summary");
+  addKeyValues(ctx, [
+    ["Complaints in this report", complaints.length],
+    [
+      "Pending / In progress / Resolved",
+      `${countBy("status", "pending")} / ${countBy("status", "in_progress")} / ${countBy("status", "resolved")}`,
+    ],
+    [
+      "High / Medium / Low priority",
+      `${countBy("priority", "high")} / ${countBy("priority", "medium")} / ${countBy("priority", "low")}`,
+    ],
+    [
+      "Average time to resolve",
+      average === null ? "-" : `${average.toFixed(1)} days`,
+    ],
+  ]);
+
+  addHeading(ctx, "Complaints");
+  addTable(ctx, {
+    head: ["Reported", "Equipment", "Priority", "Status", "Resolved", "Details"],
+    body: complaints.map((c) => {
+      const noteList = notes[c.id] ?? [];
+      const noteText =
+        noteList.length > 0
+          ? "\n\nRepair notes:\n" +
+            noteList
+              .map(
+                (n) =>
+                  `- ${n.note} (${authorLabel(n)}, ${fmtDateTime(n.created_at)})`
+              )
+              .join("\n")
+          : "";
+      return [
+        fmtDate(c.created_at),
+        `${c.equipment?.code ?? ""} ${c.equipment?.name ?? ""}`.trim() +
+          (c.equipment?.location ? `\n${c.equipment.location}` : ""),
+        PRIORITY_LABELS[c.priority] ?? c.priority,
+        STATUS_LABELS[c.status] ?? c.status,
+        fmtDate(c.resolved_at),
+        c.description + noteText,
+      ];
+    }),
+    columnStyles: {
+      0: { cellWidth: 24 },
+      1: { cellWidth: 52 },
+      2: { cellWidth: 20 },
+      3: { cellWidth: 24 },
+      4: { cellWidth: 24 },
+      5: { cellWidth: "auto" },
+    },
+    emptyText: "There are no complaints to show.",
+  });
+
+  finishDocument(ctx, fileBase);
 }
 
 // ---------- report 4: one equipment's history ----------

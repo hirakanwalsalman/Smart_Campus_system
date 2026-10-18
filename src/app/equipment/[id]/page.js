@@ -266,20 +266,18 @@ export default function EquipmentDetailPage() {
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <StatusBadge type="equipment" value={item.status} />
-            {canSeeMaintenance && (
-              <button
-                onClick={handleDownloadPdf}
-                disabled={pdfBusy}
-                className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:opacity-60"
-              >
-                {pdfBusy ? (
-                  <LoaderCircle size={14} className="animate-spin" />
-                ) : (
-                  <FileDown size={14} />
-                )}
-                {pdfBusy ? "Creating PDF..." : "Download PDF"}
-              </button>
-            )}
+            <button
+              onClick={handleDownloadPdf}
+              disabled={pdfBusy}
+              className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:opacity-60"
+            >
+              {pdfBusy ? (
+                <LoaderCircle size={14} className="animate-spin" />
+              ) : (
+                <FileDown size={14} />
+              )}
+              {pdfBusy ? "Creating PDF..." : "Download PDF"}
+            </button>
             {isAdmin && (
               <Link
                 href={`/equipment/${item.id}/edit`}

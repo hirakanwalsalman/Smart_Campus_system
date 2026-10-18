@@ -7,9 +7,11 @@ import {
   ChevronDown,
   ChevronUp,
   LoaderCircle,
+  FileDown,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/useProfile";
+import { downloadComplaintListReport } from "@/lib/pdf";
 import StatusBadge from "@/components/StatusBadge";
 
 function formatDate(value) {
@@ -44,6 +46,7 @@ export default function ComplaintsPage() {
   const [filter, setFilter] = useState("all");
   const [updatingId, setUpdatingId] = useState(null);
   const [savingNoteId, setSavingNoteId] = useState(null);
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -244,11 +247,50 @@ export default function ComplaintsPage() {
   const selectClass =
     "rounded-lg border border-slate-300 bg-white px-3 py-1 text-sm";
 
+  // Downloads a PDF of the complaints currently shown on the page
+  async function handleDownloadPdf() {
+    setPdfBusy(true);
+    setError("");
+    try {
+      const filterLabel =
+        filterButtons.find((b) => b.value === filter)?.label ?? "All";
+      await downloadComplaintListReport({
+        title,
+        subtitle:
+          filter === "all" ? "All statuses" : `Status: ${filterLabel}`,
+        complaints: visible,
+        notes,
+        generatedBy: profile?.full_name ?? "User",
+        authorLabel,
+        fileBase: isAdmin
+          ? "all-complaints"
+          : isTechnician
+          ? "assigned-complaints"
+          : "my-complaints",
+      });
+    } catch (e) {
+      setError("Could not create the PDF: " + (e?.message ?? "unknown error"));
+    }
+    setPdfBusy(false);
+  }
+
   return (
     <main className="mx-auto max-w-3xl p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold text-blue-700">{title}</h1>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={handleDownloadPdf}
+            disabled={pdfBusy || fetching || visible.length === 0}
+            className="flex items-center gap-2 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100 disabled:opacity-50"
+          >
+            {pdfBusy ? (
+              <LoaderCircle size={16} className="animate-spin" />
+            ) : (
+              <FileDown size={16} />
+            )}
+            {pdfBusy ? "Creating PDF..." : "Download PDF"}
+          </button>
           <Link
             href="/dashboard"
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100"
