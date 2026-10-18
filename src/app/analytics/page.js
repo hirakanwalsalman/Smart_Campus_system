@@ -20,6 +20,7 @@ import { ClipboardList, CircleCheck, Timer, TriangleAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/useProfile";
 import StatCard from "@/components/StatCard";
+import ReportsPanel from "@/components/ReportsPanel";
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -281,6 +282,7 @@ export default function AnalyticsPage() {
   }
 
   const stats = analyse(complaints, range);
+  const rangeLabel = RANGES.find((r) => r.value === range)?.label ?? "";
   const resolvedPercent =
     stats.total > 0
       ? Math.round((stats.statusCounts.resolved / stats.total) * 100)
@@ -453,6 +455,13 @@ export default function AnalyticsPage() {
           </p>
         </>
       )}
+
+      {/* PDF reports */}
+      <ReportsPanel
+        range={range}
+        rangeLabel={rangeLabel}
+        generatedBy={profile?.full_name ?? "Admin"}
+      />
     </div>
   );
 }

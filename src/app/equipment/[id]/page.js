@@ -14,10 +14,13 @@ import {
   TriangleAlert,
   Inbox,
   Repeat,
+  FileDown,
+  LoaderCircle,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useProfile } from "@/lib/useProfile";
 import { daysUntil, dueText, formatDateOnly } from "@/lib/dates";
+import { downloadEquipmentHistoryReport } from "@/lib/pdf";
 import StatCard from "@/components/StatCard";
 import StatusBadge from "@/components/StatusBadge";
 
@@ -64,6 +67,7 @@ export default function EquipmentDetailPage() {
   const [names, setNames] = useState({}); // user id -> full name (admin only)
   const [fetching, setFetching] = useState(true);
   const [error, setError] = useState("");
+  const [pdfBusy, setPdfBusy] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
@@ -216,6 +220,27 @@ export default function EquipmentDetailPage() {
     return "A technician";
   }
 
+  async function handleDownloadPdf() {
+    setPdfBusy(true);
+    setError("");
+    try {
+      await downloadEquipmentHistoryReport({
+        item,
+        complaints,
+        notes,
+        tasks: activeTasks,
+        logs,
+        generatedBy: profile?.full_name ?? "User",
+        showMaintenance: canSeeMaintenance,
+        authorLabel,
+        completerLabel,
+      });
+    } catch (e) {
+      setError("Could not create the PDF: " + (e?.message ?? "unknown error"));
+    }
+    setPdfBusy(false);
+  }
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <Link
@@ -226,6 +251,12 @@ export default function EquipmentDetailPage() {
         Back to equipment
       </Link>
 
+      {error && (
+        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       {/* Equipment details */}
       <div className="mt-4 rounded-xl bg-white p-6 shadow-sm ring-1 ring-slate-200">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -233,8 +264,22 @@ export default function EquipmentDetailPage() {
             <p className="text-sm font-medium text-slate-500">{item.code}</p>
             <h1 className="text-2xl font-bold">{item.name}</h1>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <StatusBadge type="equipment" value={item.status} />
+            {canSeeMaintenance && (
+              <button
+                onClick={handleDownloadPdf}
+                disabled={pdfBusy}
+                className="flex items-center gap-2 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100 disabled:opacity-60"
+              >
+                {pdfBusy ? (
+                  <LoaderCircle size={14} className="animate-spin" />
+                ) : (
+                  <FileDown size={14} />
+                )}
+                {pdfBusy ? "Creating PDF..." : "Download PDF"}
+              </button>
+            )}
             {isAdmin && (
               <Link
                 href={`/equipment/${item.id}/edit`}
